@@ -1,0 +1,263 @@
+use serde::{Deserialize, Serialize};
+
+/// Account entity matching the `accounts` SQLite table
+#[derive(Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Account {
+    pub id: String,
+    pub platform: String,
+    pub name: String,
+    /// Invariant: NEVER serialize plain or encrypted token to the frontend.
+    #[serde(skip_serializing)]
+    pub encrypted_token: String,
+    pub created_at: i64,
+    /// Masked representation for frontend display (e.g. "vk_***123")
+    #[serde(skip_deserializing)]
+    #[sqlx(default)]
+    pub masked_token: Option<String>,
+}
+
+impl Account {
+    /// Populate `masked_token` for safe frontend display without exposing the real token
+    pub fn with_masked_token(mut self) -> Self {
+        let suffix = if self.id.len() >= 4 {
+            &self.id[..4]
+        } else {
+            "sec"
+        };
+        self.masked_token = Some(format!("{}_***{}", self.platform, suffix));
+        self
+    }
+}
+
+/// Invariant: Redact encrypted_token in logs and debug printing
+impl std::fmt::Debug for Account {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Account")
+            .field("id", &self.id)
+            .field("platform", &self.platform)
+            .field("name", &self.name)
+            .field("encrypted_token", &"[REDACTED]")
+            .field("created_at", &self.created_at)
+            .field("masked_token", &self.masked_token)
+            .finish()
+    }
+}
+
+/// Payload for creating a new account.
+/// Accepts raw token via `token`, `raw_token`, `plain_token`, or `encrypted_token`.
+#[derive(Clone, Serialize)]
+pub struct CreateAccountInput {
+    pub id: Option<String>,
+    pub platform: String,
+    pub name: String,
+    pub encrypted_token: String,
+    pub created_at: Option<i64>,
+}
+
+impl<'de> Deserialize<'de> for CreateAccountInput {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawAccountInput {
+            id: Option<String>,
+            platform: String,
+            name: String,
+            #[serde(default)]
+            token: Option<String>,
+            #[serde(default)]
+            raw_token: Option<String>,
+            #[serde(default)]
+            plain_token: Option<String>,
+            #[serde(default)]
+            encrypted_token: Option<String>,
+            created_at: Option<i64>,
+        }
+
+        let raw = RawAccountInput::deserialize(deserializer)?;
+        let token_val = raw
+            .encrypted_token
+            .filter(|s| !s.is_empty())
+            .or(raw.token)
+            .or(raw.raw_token)
+            .or(raw.plain_token)
+            .unwrap_or_default();
+
+        Ok(CreateAccountInput {
+            id: raw.id,
+            platform: raw.platform,
+            name: raw.name,
+            encrypted_token: token_val,
+            created_at: raw.created_at,
+        })
+    }
+}
+
+/// Invariant: Redact plain token in logs and debug printing
+impl std::fmt::Debug for CreateAccountInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CreateAccountInput")
+            .field("id", &self.id)
+            .field("platform", &self.platform)
+            .field("name", &self.name)
+            .field("encrypted_token", &"[REDACTED]")
+            .field("created_at", &self.created_at)
+            .finish()
+    }
+}
+
+/// Post status enum values
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PostStatus {
+    Draft,
+    Scheduled,
+    Publishing,
+    Published,
+    Failed,
+    #[serde(rename = "partially_published")]
+    PartiallyPublished,
+}
+
+impl PostStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PostStatus::Draft => "draft",
+            PostStatus::Scheduled => "scheduled",
+            PostStatus::Publishing => "publishing",
+            PostStatus::Published => "published",
+            PostStatus::Failed => "failed",
+            PostStatus::PartiallyPublished => "partially_published",
+        }
+    }
+}
+
+impl std::str::FromStr for PostStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "draft" => Ok(PostStatus::Draft),
+            "scheduled" => Ok(PostStatus::Scheduled),
+            "publishing" => Ok(PostStatus::Publishing),
+            "published" => Ok(PostStatus::Published),
+            "failed" => Ok(PostStatus::Failed),
+            "partially_published" => Ok(PostStatus::PartiallyPublished),
+            _ => Err(format!("Invalid post status: {}", s)),
+        }
+    }
+}
+
+/// Post entity matching the `posts` SQLite table
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PostRow {
+    pub id: String,
+    pub content: String,
+    pub media_urls: String,
+    pub status: String,
+    pub scheduled_for: Option<i64>,
+    pub created_at: i64,
+}
+
+/// Detailed destination account info including status and error log
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DestinationInfo {
+    pub account_id: String,
+    pub status: String, // 'pending', 'published', 'failed'
+    pub error_log: Option<String>,
+}
+
+/// Enriched Post representation returned to frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Post {
+    pub id: String,
+    pub content: String,
+    pub media_urls: Vec<String>,
+    pub status: String,
+    pub scheduled_for: Option<i64>,
+    pub created_at: i64,
+    pub destination_account_ids: Vec<String>,
+    #[serde(default)]
+    pub destinations: Vec<DestinationInfo>,
+}
+
+/// Payload for creating a new post
+#[derive(Debug, Clone, Serialize)]
+pub struct CreatePostInput {
+    pub id: Option<String>,
+    pub content: String,
+    pub media_urls: Option<Vec<String>>,
+    pub status: Option<String>,
+    pub scheduled_for: Option<i64>,
+    pub created_at: Option<i64>,
+    pub destination_account_ids: Option<Vec<String>>,
+}
+
+impl<'de> Deserialize<'de> for CreatePostInput {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawPostInput {
+            id: Option<String>,
+            content: String,
+            media_urls: Option<Vec<String>>,
+            status: Option<String>,
+            scheduled_for: Option<i64>,
+            created_at: Option<i64>,
+            #[serde(default)]
+            account_ids: Option<Vec<String>>,
+            #[serde(default)]
+            destination_account_ids: Option<Vec<String>>,
+        }
+
+        let raw = RawPostInput::deserialize(deserializer)?;
+        let dest_ids = raw
+            .destination_account_ids
+            .filter(|v| !v.is_empty())
+            .or(raw.account_ids);
+
+        Ok(CreatePostInput {
+            id: raw.id,
+            content: raw.content,
+            media_urls: raw.media_urls,
+            status: raw.status,
+            scheduled_for: raw.scheduled_for,
+            created_at: raw.created_at,
+            destination_account_ids: dest_ids,
+        })
+    }
+}
+
+/// Many-to-many relationship entity
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PostDestination {
+    pub post_id: String,
+    pub account_id: String,
+    pub status: String,
+    pub error_log: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_create_account_with_both_token_and_encrypted_token() {
+        let json = r#"{"platform":"tg","name":"Test Bot","token":"my_token_123","encrypted_token":"my_token_123"}"#;
+        let parsed: CreateAccountInput = serde_json::from_str(json).expect("Should deserialize without duplicate field error");
+        assert_eq!(parsed.platform, "tg");
+        assert_eq!(parsed.name, "Test Bot");
+        assert_eq!(parsed.encrypted_token, "my_token_123");
+    }
+
+    #[test]
+    fn test_deserialize_create_post_with_both_account_ids_and_destination_account_ids() {
+        let json = r#"{"content":"Test post","account_ids":["acc-1"],"destination_account_ids":["acc-1"]}"#;
+        let parsed: CreatePostInput = serde_json::from_str(json).expect("Should deserialize without duplicate field error");
+        assert_eq!(parsed.content, "Test post");
+        assert_eq!(parsed.destination_account_ids, Some(vec!["acc-1".to_string()]));
+    }
+}
