@@ -32,16 +32,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install frontend dependencies
+        run: pnpm install
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -51,21 +55,18 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
-
-      - name: Install frontend dependencies
-        run: pnpm install
+          workspaces: 'src-tauri'
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: v__VERSION__
           releaseName: 'SMM Control Center v__VERSION__'
-          releaseBody: 'Release ${{ github.ref_name }} of SMM Control Center. See assets below for installers and auto-update binaries.'
+          releaseBody: 'Release v__VERSION__ of SMM Control Center. See assets below for installers and auto-update binaries.'
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
