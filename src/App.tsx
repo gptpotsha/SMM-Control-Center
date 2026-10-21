@@ -5,6 +5,7 @@ import { Calendar, Users, Sparkles, RefreshCw, ArrowDownCircle } from 'lucide-re
 import { Toaster } from 'sonner';
 import { useUpdater } from './hooks/useUpdater';
 import { UpdateDialog } from './components/UpdateDialog';
+import { AutostartToggle } from './components/AutostartToggle';
 
 type ActiveTab = 'posts' | 'accounts';
 
@@ -70,8 +71,10 @@ export function App() {
             </button>
           </nav>
 
-          {/* Right Header Section: Updater & Tokio Worker Status */}
-          <div className="flex items-center gap-4">
+          {/* Right Header Section: Autostart, Updater & Tokio Worker Status */}
+          <div className="flex items-center gap-3">
+            <AutostartToggle compact />
+
             <button
               onClick={() => checkForUpdates(true)}
               disabled={isChecking || isDownloading}

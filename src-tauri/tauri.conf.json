@@ -14,7 +14,8 @@
       {
         "title": "SMM Control Center",
         "width": 1000,
-        "height": 700
+        "height": 700,
+        "visible": false
       }
     ],
     "security": {
@@ -34,7 +35,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/gptpotsha/SMM-Control-Center/releases/latest/download/latest.json"
+        "https://gitverse.ru/api/v1/repos/gptpotsha/SMM-Control-Center/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERGRDI5RTk1MzBFMUQxMjQKUldRazBlRXdsWjdTMzRscFByRU9ra0tFc21LM1B1WVdIbVRtdkhvRlUwblIwTktON21oSmVxNUoK"
     }

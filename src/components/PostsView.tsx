@@ -3,6 +3,7 @@ import { Plus, RefreshCw, Send, Sparkles, Clock, CheckCircle2, AlertCircle } fro
 import { usePostsQuery } from '../hooks/usePosts';
 import { PostList } from './PostList';
 import { CreatePostModal } from './CreatePostModal';
+import { AutostartToggle } from './AutostartToggle';
 
 export const PostsView: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -56,6 +57,9 @@ export const PostsView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* System Daemon & Autostart Control */}
+      <AutostartToggle />
 
       {/* Metrics Banner */}
       {posts && posts.length > 0 && (

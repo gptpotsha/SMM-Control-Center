@@ -5,6 +5,8 @@ pub mod models;
 pub mod publisher;
 pub mod scheduler;
 
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -31,6 +33,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:smm_local.db", migrations)
@@ -55,6 +61,71 @@ pub fn run() {
             // Manage DbState for Tauri commands
             app.manage(db::DbState { pool });
 
+            // Invariant: Silent Autostart check
+            let is_autostart = std::env::args().any(|arg| {
+                arg == "--autostart" || arg == "--silent" || arg == "--minimized"
+            });
+            if let Some(window) = app.get_webview_window("main") {
+                if is_autostart {
+                    let _ = window.hide();
+                } else {
+                    let _ = window.show();
+                }
+            }
+
+            // Invariant: System Tray Menu setup
+            let show_item = MenuItem::with_id(
+                app,
+                "show",
+                "Развернуть SMM Control Center",
+                true,
+                None::<&str>,
+            )?;
+            let quit_item = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            let mut tray_builder = TrayIconBuilder::new()
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    }
+                    | TrayIconEvent::DoubleClick {
+                        button: MouseButton::Left,
+                        ..
+                    } => {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    _ => {}
+                });
+
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            }
+
+            let _tray = tray_builder.build(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -75,9 +146,28 @@ pub fn run() {
         context.config_mut().build.dev_url = None;
     }
 
-    builder
-        .run(context)
-        .expect("error while running tauri application");
+    let app = builder
+        .build(context)
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::WindowEvent {
+            event: tauri::WindowEvent::CloseRequested { api, .. },
+            label,
+            ..
+        } => {
+            // Invariant: Background Worker Survival. Window hides on close, Tokio worker keeps running.
+            api.prevent_close();
+            if let Some(window) = app_handle.get_webview_window(&label) {
+                let _ = window.hide();
+            }
+        }
+        tauri::RunEvent::ExitRequested { api, .. } => {
+            // Prevent application from exiting when all windows are hidden
+            api.prevent_exit();
+        }
+        _ => {}
+    });
 }
 
 #[cfg(test)]
