@@ -18,15 +18,22 @@ import { MediaPreviewList } from './MediaPreviewList';
 import { toast } from 'sonner';
 
 interface CreatePostFormProps {
+  initialContent?: string;
+  initialMediaUrls?: string[];
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export const CreatePostForm: React.FC<CreatePostFormProps> = ({ onSuccess, onCancel }) => {
-  const [content, setContent] = useState('');
+export const CreatePostForm: React.FC<CreatePostFormProps> = ({
+  initialContent = '',
+  initialMediaUrls = [],
+  onSuccess,
+  onCancel,
+}) => {
+  const [content, setContent] = useState(initialContent);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState('');
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [mediaUrls, setMediaUrls] = useState<string[]>(initialMediaUrls);
 
   const { data: accounts, isLoading: isAccountsLoading } = useAccountsQuery();
   const createMutation = useCreatePostMutation();

@@ -240,3 +240,25 @@ export async function deletePost(id: string): Promise<DeleteResult> {
 export async function retryPost(id: string): Promise<Post> {
   return await safeInvoke<Post>('retry_post', { id });
 }
+
+/**
+ * ParsedItem representation for extracted external content (RSS/HTML OpenGraph)
+ */
+export interface ParsedItem {
+  id: string;
+  title: string;
+  content: string;
+  image_url: string | null;
+  source_url: string;
+  pub_date: string | null;
+}
+
+/**
+ * Parse an external content source by URL (RSS/Atom feed or web page OpenGraph metadata)
+ *
+ * @param url Target web page or RSS URL
+ * @returns Array of ParsedItem
+ */
+export async function parseContentSource(url: string): Promise<ParsedItem[]> {
+  return await safeInvoke<ParsedItem[]>('parse_content_source', { url });
+}

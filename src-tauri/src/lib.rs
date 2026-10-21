@@ -2,6 +2,7 @@ pub mod commands;
 pub mod crypto;
 pub mod db;
 pub mod models;
+pub mod parser;
 pub mod publisher;
 pub mod scheduler;
 
@@ -136,7 +137,8 @@ pub fn run() {
             commands::create_post,
             commands::get_posts,
             commands::delete_post,
-            commands::retry_post
+            commands::retry_post,
+            commands::parse_content_source
         ]);
 
     #[allow(unused_mut)]

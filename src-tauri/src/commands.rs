@@ -113,3 +113,10 @@ pub async fn retry_post(
     let post = maybe_post.ok_or_else(|| format!("Post '{}' not found", id))?;
     serde_json::to_value(&post).map_err(|e| format!("Serialization error: {}", e))
 }
+
+/// Tauri Command: Parse content source (RSS/Atom feed or HTML OpenGraph)
+/// Invariant: Storage isolation: Does not write to DB, returns parsed items directly to frontend.
+#[tauri::command]
+pub async fn parse_content_source(url: String) -> Result<Vec<crate::parser::ParsedItem>, String> {
+    crate::parser::parse_content_source(&url).await
+}

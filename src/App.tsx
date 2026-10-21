@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { AccountsView } from './components/AccountsView';
 import { PostsView } from './components/PostsView';
-import { Calendar, Users, Sparkles, RefreshCw, ArrowDownCircle } from 'lucide-react';
+import { ContentGrabberView } from './components/ContentGrabberView';
+import { Calendar, Users, Sparkles, RefreshCw, ArrowDownCircle, Rss } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { useUpdater } from './hooks/useUpdater';
 import { UpdateDialog } from './components/UpdateDialog';
 import { AutostartToggle } from './components/AutostartToggle';
 
-type ActiveTab = 'posts' | 'accounts';
+type ActiveTab = 'posts' | 'grabber' | 'accounts';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('posts');
@@ -56,6 +57,18 @@ export function App() {
             >
               <Calendar className="w-4 h-4 text-blue-500" />
               Публикации
+            </button>
+
+            <button
+              onClick={() => setActiveTab('grabber')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'grabber'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-xs'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Rss className="w-4 h-4 text-amber-500" />
+              Граббер
             </button>
 
             <button
@@ -115,7 +128,9 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-10">
-        {activeTab === 'posts' ? <PostsView /> : <AccountsView />}
+        {activeTab === 'posts' && <PostsView />}
+        {activeTab === 'grabber' && <ContentGrabberView />}
+        {activeTab === 'accounts' && <AccountsView />}
       </main>
 
       {/* Update Dialog Modal */}

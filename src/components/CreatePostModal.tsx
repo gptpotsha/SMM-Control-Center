@@ -4,10 +4,17 @@ import { CreatePostForm } from './CreatePostForm';
 
 interface CreatePostModalProps {
   isOpen: boolean;
+  initialContent?: string;
+  initialMediaUrls?: string[];
   onClose: () => void;
 }
 
-export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose }) => {
+export const CreatePostModal: React.FC<CreatePostModalProps> = ({
+  isOpen,
+  initialContent,
+  initialMediaUrls,
+  onClose,
+}) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -52,7 +59,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
         {/* Modal Form Content */}
         <div className="p-6 overflow-y-auto">
-          <CreatePostForm onSuccess={onClose} onCancel={onClose} />
+          <CreatePostForm
+            key={initialContent || 'default'}
+            initialContent={initialContent}
+            initialMediaUrls={initialMediaUrls}
+            onSuccess={onClose}
+            onCancel={onClose}
+          />
         </div>
       </div>
     </div>
